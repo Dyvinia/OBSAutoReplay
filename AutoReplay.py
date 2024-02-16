@@ -6,9 +6,11 @@ import win32process
 from windows_toasts import Toast, WindowsToaster, ToastDuration
 
 def script_description():
-    return """Auto start Replays Buffer when Fullscreen Game Capture displays output, as well as showing windows toasts when starting, stopping, and saving.
+    return """
+Quality of Life features for Replay Buffer, making it similar to applications like Nvidia Shadowplay.
 
-Author: Dyvinia"""
+OBSAutoReplay v1.0 by Dyvinia
+""".strip()
 
 def script_properties():
     props = obs.obs_properties_create()
