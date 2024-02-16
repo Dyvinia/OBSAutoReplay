@@ -29,7 +29,7 @@ def script_properties():
 
     return props
 
-toaster = WindowsToaster('OBS Replay')
+toaster = WindowsToaster('OBSAutoReplay')
 sett = None
 hotkey_id = obs.OBS_INVALID_HOTKEY_ID
 
@@ -137,7 +137,7 @@ def get_foreground_window():
         return "Other"
     
 def query_clipping_hotkey(is_pressed):
-    toasterQuery = WindowsToaster('OBS Replay')
+    toasterQuery = WindowsToaster('OBSAutoReplay')
     if is_pressed and obs.obs_frontend_replay_buffer_active():
         newToast = Toast()
         newToast.text_fields = ['Replay Buffer is Currently Active']
