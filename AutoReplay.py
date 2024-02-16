@@ -14,7 +14,7 @@ Author: Dyvinia"""
 def script_properties():
     props = obs.obs_properties_create()
     scene_for_clips = obs.obs_properties_add_list(props, "scene", "Scene For Clipping",
-                                    obs.OBS_COMBO_TYPE_EDITABLE,
+                                    obs.OBS_COMBO_TYPE_LIST,
                                     obs.OBS_COMBO_FORMAT_STRING)
     scenes = obs.obs_frontend_get_scene_names()
     
