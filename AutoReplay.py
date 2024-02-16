@@ -30,6 +30,7 @@ def script_properties():
 
 toaster = WindowsToaster('OBS Replay')
 sett = None
+hotkey_id = obs.OBS_INVALID_HOTKEY_ID
 
 def script_load(settings):
     obs.obs_frontend_add_event_callback(obs_frontend_callback)
@@ -37,6 +38,17 @@ def script_load(settings):
 
     global sett
     sett = settings
+
+    global hotkey_id
+    hotkey_id = obs.obs_hotkey_register_frontend("query_clipping", "Check If Replay Buffer Is Enabled", query_clipping_hotkey)
+    the_data_array = obs.obs_data_get_array(settings, "query_clipping")
+    obs.obs_hotkey_load(hotkey_id, the_data_array)
+    obs.obs_data_array_release(the_data_array)
+
+def script_save(settings):
+    the_data_array = obs.obs_hotkey_save(hotkey_id)
+    obs.obs_data_set_array(settings, "query_clipping", the_data_array)
+    obs.obs_data_array_release(the_data_array)
 
 def script_unload():
     obs.timer_remove(auto_replay_buffer)
@@ -97,7 +109,7 @@ def move_recording():
     obs.calldata_destroy(cd)
     obs.obs_output_release(replay_buffer)
 
-    game = safe_for_path(get_foreground_window())
+    game = get_foreground_window()
     new_path = os.path.dirname(path) + '/Replays/' + game + '/' + os.path.basename(path)
 
     print("Saving replay to: " + new_path)
@@ -113,10 +125,18 @@ def get_foreground_window():
         return psutil.Process(pid).name().replace(".exe", "").replace('.', '').strip()
     except:
         return "Other"
-
-def safe_for_path(s):
-    fixed = re.sub(r'[/\\:*?"<>|.]', '', s).strip()
-    if len(fixed) > 0:
-        return fixed
-    else:
-        return "Other"
+    
+def query_clipping_hotkey(is_pressed):
+    toasterQuery = WindowsToaster('OBS Replay')
+    if is_pressed and obs.obs_frontend_replay_buffer_active():
+        newToast = Toast()
+        newToast.text_fields = ['Replay Buffer is Currently Active']
+        newToast.duration = ToastDuration.Short
+        toasterQuery.clear_toasts()
+        toasterQuery.show_toast(newToast)
+    elif is_pressed and not obs.obs_frontend_replay_buffer_active():
+        newToast = Toast()
+        newToast.text_fields = ['Replay Buffer is Not Active']
+        newToast.duration = ToastDuration.Short
+        toasterQuery.clear_toasts()
+        toasterQuery.show_toast(newToast)
