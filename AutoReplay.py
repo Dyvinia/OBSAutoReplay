@@ -1,9 +1,8 @@
 import obspython as obs
 import os
-import re
+import psutil
 import win32gui
 import win32process
-import psutil
 from windows_toasts import Toast, WindowsToaster, ToastDuration
 
 def script_description():
