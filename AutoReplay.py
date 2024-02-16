@@ -89,9 +89,18 @@ def auto_replay_buffer():
         obs.obs_source_release(scene_as_source)
         return
 
-    current_scene = obs.obs_scene_from_source(scene_as_source)
-    scene_item = obs.obs_scene_find_source_recursive(current_scene, "Fullscreen Game Capture")
-    source = obs.obs_sceneitem_get_source(scene_item)
+    scene_items = obs.obs_scene_enum_items(obs.obs_scene_from_source(scene_as_source))
+
+    source = None
+    for item in scene_items:
+        source_item = obs.obs_sceneitem_get_source(item)
+        source_id = obs.obs_source_get_id(source_item)
+        if source_id == "game_capture":
+            source = source_item
+    obs.sceneitem_list_release(scene_items)
+    
+    if source is None:
+        print("Could not find Game Capture source in current scene")
 
     if (not obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) > 0):
         obs.obs_frontend_replay_buffer_start()
