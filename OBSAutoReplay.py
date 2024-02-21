@@ -1,6 +1,8 @@
 import obspython as obs
+import re
 import os
 import psutil
+import win32api
 import win32gui
 import win32process
 from windows_toasts import Toast, WindowsToaster, ToastDuration
@@ -132,8 +134,25 @@ def get_foreground_window():
         hwnd = win32gui.GetForegroundWindow()
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
 
-        return psutil.Process(pid).name().replace(".exe", "").replace('.', '').strip()
+        exe = psutil.Process(pid).exe()
+        print(exe)
+
+        try:
+            language, codepage = win32api.GetFileVersionInfo(exe, '\\VarFileInfo\\Translation')[0]
+            stringFileInfo = u'\\StringFileInfo\\%04X%04X\\%s' % (language, codepage, "FileDescription")
+
+            return alphanumeric(win32api.GetFileVersionInfo(exe, stringFileInfo))
+        except:
+            return psutil.Process(pid).name().replace(".exe", "").replace('.', '').strip()
+
     except:
+        return "Other"
+    
+def alphanumeric(s):
+    fixed = re.sub(r'[^A-Za-z0-9 ]+', '', s).strip()
+    if len(fixed) > 0:
+        return fixed
+    else:
         return "Other"
     
 def query_clipping_hotkey(is_pressed):
