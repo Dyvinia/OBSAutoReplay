@@ -28,10 +28,17 @@ def script_properties():
 
     obs.source_list_release(scenes)
     
-    obs.obs_properties_add_float_slider(props, "ingame_toast_duration", "Notification Duration:", 0.5, 5, 0.05)
-
-    obs.obs_properties_add_bool(props, "enabled", "Enable Clipping")
-    obs.obs_properties_add_bool(props, "enable_notif", "Notification On Save")
+    refresh_interval = obs.obs_properties_add_float(props, "refresh_interval", "Refresh Interval:", 1, 20, 1)
+    obs.obs_property_set_long_description(refresh_interval, "How often the OBSAutoReplay checks for if a game has started\nChanging this requires reloading scripts or restarting OBS")
+    
+    ingame_toast_duration = obs.obs_properties_add_float_slider(props, "ingame_toast_duration", "Notification Duration:", 0.5, 5, 0.05)
+    obs.obs_property_set_long_description(ingame_toast_duration, "How long the notifications stay on screen")
+    
+    enabled = obs.obs_properties_add_bool(props, "enabled", "Enable Clipping ")
+    #obs.obs_property_set_long_description(enabled, "Enable/Disable Clipping")
+    
+    enable_notif = obs.obs_properties_add_bool(props, "enable_notif", "Notification On Save ")
+    obs.obs_property_set_long_description(enable_notif, "Shows a windows notification whenever a clip is saved")
 
     return props
 
@@ -43,10 +50,11 @@ start_time = None
 
 def script_load(settings):
     obs.obs_frontend_add_event_callback(obs_frontend_callback)
-    obs.timer_add(auto_replay_buffer, 10000)
-
+    
     global sett
     sett = settings
+    
+    obs.timer_add(auto_replay_buffer, int(obs.obs_data_get_double(sett, "refresh_interval") * 1000))
 
     global hotkey_id
     hotkey_id = obs.obs_hotkey_register_frontend("query_clipping", "Check If Replay Buffer Is Enabled", query_clipping_hotkey)
@@ -60,6 +68,7 @@ def script_save(settings):
     obs.obs_data_array_release(the_data_array)
     
 def script_defaults(settings):
+    obs.obs_data_set_default_double(settings, "refresh_interval", 10)
     obs.obs_data_set_default_double(settings, "ingame_toast_duration", 1.25)
     obs.obs_data_set_default_bool(settings, "enabled", True)
     obs.obs_data_set_default_bool(settings, "enable_notif", True)
