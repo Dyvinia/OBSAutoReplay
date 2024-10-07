@@ -29,7 +29,7 @@ def script_properties():
     obs.source_list_release(scenes)
     
     refresh_interval = obs.obs_properties_add_float(props, "refresh_interval", "Refresh Interval:", 1, 20, 1)
-    obs.obs_property_set_long_description(refresh_interval, "How often the OBSAutoReplay checks for if a game has started\nChanging this requires reloading scripts or restarting OBS")
+    obs.obs_property_set_long_description(refresh_interval, "How often the OBSAutoReplay checks for if a game has started\n**Changing this requires reloading scripts or restarting OBS**")
     
     ingame_toast_duration = obs.obs_properties_add_float_slider(props, "ingame_toast_duration", "Notification Duration:", 0.5, 5, 0.05)
     obs.obs_property_set_long_description(ingame_toast_duration, "How long the notifications stay on screen")
