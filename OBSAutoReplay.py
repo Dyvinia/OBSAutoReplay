@@ -12,7 +12,7 @@ def script_description():
     return """
 Quality of Life features for Replay Buffer, making it similar to applications like Nvidia Shadowplay.
 
-OBSAutoReplay v1.0 by Dyvinia
+OBSAutoReplay v1.1 by Dyvinia
 """.strip()
 
 def script_properties():
