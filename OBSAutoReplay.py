@@ -1,8 +1,9 @@
 import obspython as obs # type: ignore
+from datetime import datetime
 import re
 import os
 import psutil
-from datetime import datetime
+import traceback
 import time
 import win32api
 import win32gui
@@ -133,38 +134,42 @@ def auto_replay_buffer():
             obs.obs_frontend_replay_buffer_stop()
         return
 
-    scene_as_source = obs.obs_frontend_get_current_scene()
+    try:
+        scene_as_source = obs.obs_frontend_get_current_scene()
 
-    if obs.obs_source_get_name(scene_as_source) != obs.obs_data_get_string(sett, "scene"):
-        obs.obs_source_release(scene_as_source)
-        return
+        if obs.obs_source_get_name(scene_as_source) != obs.obs_data_get_string(sett, "scene"):
+            obs.obs_source_release(scene_as_source)
+            return
 
-    scene_items = obs.obs_scene_enum_items(obs.obs_scene_from_source(scene_as_source))
+        scene_items = obs.obs_scene_enum_items(obs.obs_scene_from_source(scene_as_source))
 
-    source = None
-    for item in scene_items:
-        source_item = obs.obs_sceneitem_get_source(item)
-        source_id = obs.obs_source_get_id(source_item)
-        if source_id == "game_capture":
-            source = source_item
-    obs.sceneitem_list_release(scene_items)
-    
-    if source is None:
-        print("Could not find Game Capture source in current scene")
-
-    global current_game
-    global start_time
-    if (not obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) > 0):
-        obs.obs_frontend_replay_buffer_start()
-        current_game = get_foreground_window()
-        start_time = datetime.now()
+        source = None
+        for item in scene_items:
+            source_item = obs.obs_sceneitem_get_source(item)
+            source_id = obs.obs_source_get_id(source_item)
+            if source_id == "game_capture":
+                source = source_item
+        obs.sceneitem_list_release(scene_items)
         
-    elif (obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) == 0):
-        obs.obs_frontend_replay_buffer_stop()
-        current_game = None
-        start_time = None
+        if source is None:
+            print("Could not find Game Capture source in current scene")
 
-    obs.obs_source_release(scene_as_source)
+        global current_game
+        global start_time
+        if (not obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) > 0):
+            obs.obs_frontend_replay_buffer_start()
+            current_game = get_foreground_window()
+            start_time = datetime.now()
+
+        elif (obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) == 0):
+            obs.obs_frontend_replay_buffer_stop()
+            current_game = None
+            start_time = None
+
+        obs.obs_source_release(scene_as_source)
+        
+    except Exception:
+        traceback.print_exc()
 
 def move_recording():
     replay_buffer = obs.obs_frontend_get_replay_buffer_output()
@@ -230,6 +235,10 @@ def query_clipping_hotkey(is_pressed):
         newToast.duration = ToastDuration.Short
         toasterQuery.clear_toasts()
         toasterQuery.show_toast(newToast)
+        
+        time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+        toasterQuery.clear_toasts()
+        
     elif is_pressed and not obs.obs_frontend_replay_buffer_active():
         newToast = Toast()
         newToast.text_fields = ['Replay Buffer is Not Active']
