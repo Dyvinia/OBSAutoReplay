@@ -62,6 +62,13 @@ def script_unload():
 
 def obs_frontend_callback(event):
     if event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_SAVED:
+        # sometimes the moving takes a while and theres no notif until after its done, leaving me worried it didnt save the clip. hopefully this fixes that
+        if not obs.obs_data_get_bool(sett, "disable_notif"):
+            newToast = Toast()
+            newToast.text_fields = ['Saving Replay...']
+            newToast.duration = ToastDuration.Short
+            toaster.clear_toasts()
+            toaster.show_toast(newToast)
         path = move_recording()
         if not obs.obs_data_get_bool(sett, "disable_notif"):
             newToast = Toast()
