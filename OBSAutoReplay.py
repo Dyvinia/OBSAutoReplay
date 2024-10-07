@@ -32,8 +32,8 @@ def script_properties():
     refresh_interval = obs.obs_properties_add_float(props, "refresh_interval", "Refresh Interval:", 1, 20, 1)
     obs.obs_property_set_long_description(refresh_interval, "How often the OBSAutoReplay checks for if a game has started\n**Changing this requires reloading scripts or restarting OBS**")
     
-    ingame_toast_duration = obs.obs_properties_add_float_slider(props, "ingame_toast_duration", "Notification Duration:", 0.5, 5, 0.05)
-    obs.obs_property_set_long_description(ingame_toast_duration, "How long the notifications stay on screen")
+    toast_duration = obs.obs_properties_add_float_slider(props, "toast_duration", "Notification Duration:", 0.5, 5, 0.05)
+    obs.obs_property_set_long_description(toast_duration, "How long the notifications stay on screen")
     
     enabled = obs.obs_properties_add_bool(props, "enabled", "Enable Clipping ")
     #obs.obs_property_set_long_description(enabled, "Enable/Disable Clipping")
@@ -70,7 +70,7 @@ def script_save(settings):
     
 def script_defaults(settings):
     obs.obs_data_set_default_double(settings, "refresh_interval", 10)
-    obs.obs_data_set_default_double(settings, "ingame_toast_duration", 1.25)
+    obs.obs_data_set_default_double(settings, "toast_duration", 1.5)
     obs.obs_data_set_default_bool(settings, "enabled", True)
     obs.obs_data_set_default_bool(settings, "enable_notif", True)
 
@@ -88,7 +88,7 @@ def obs_frontend_callback(event):
             newToast.duration = ToastDuration.Short
             toaster.clear_toasts()
             toaster.show_toast(newToast)
-            time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+            time.sleep(obs.obs_data_get_double(sett, "toast_duration"))
             toaster.clear_toasts()
         path = move_recording()
         if obs.obs_data_get_bool(sett, "enable_notif"):
@@ -97,7 +97,7 @@ def obs_frontend_callback(event):
             newToast.duration = ToastDuration.Short
             toaster.clear_toasts()
             toaster.show_toast(newToast)
-            time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+            time.sleep(obs.obs_data_get_double(sett, "toast_duration"))
             toaster.clear_toasts()
             
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED:
@@ -113,6 +113,9 @@ def obs_frontend_callback(event):
         toaster.clear_toasts()
         toaster.show_toast(newToast)
         
+        time.sleep(obs.obs_data_get_double(sett, "toast_duration") * 1.5)
+        toaster.clear_toasts()
+        
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED:
         newToast = Toast()
         
@@ -127,6 +130,7 @@ def obs_frontend_callback(event):
         toaster.show_toast(newToast)
         
         start_time = None
+        # no toast duration here so that the notif with the playtime isnt lost
 
 def auto_replay_buffer():
     if not obs.obs_data_get_bool(sett, "enabled"):
@@ -236,7 +240,7 @@ def query_clipping_hotkey(is_pressed):
         toasterQuery.clear_toasts()
         toasterQuery.show_toast(newToast)
         
-        time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+        time.sleep(obs.obs_data_get_double(sett, "toast_duration"))
         toasterQuery.clear_toasts()
         
     elif is_pressed and not obs.obs_frontend_replay_buffer_active():
@@ -246,7 +250,7 @@ def query_clipping_hotkey(is_pressed):
         toasterQuery.clear_toasts()
         toasterQuery.show_toast(newToast)
         
-        time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+        time.sleep(obs.obs_data_get_double(sett, "toast_duration"))
         toasterQuery.clear_toasts()
         
 def get_session_duration():
