@@ -1,7 +1,8 @@
-import obspython as obs
+import obspython as obs # type: ignore
 import re
 import os
 import psutil
+from datetime import datetime
 import win32api
 import win32gui
 import win32process
@@ -34,6 +35,8 @@ def script_properties():
 toaster = WindowsToaster('OBSAutoReplay')
 sett = None
 hotkey_id = obs.OBS_INVALID_HOTKEY_ID
+current_game = None
+start_time = None
 
 def script_load(settings):
     obs.obs_frontend_add_event_callback(obs_frontend_callback)
@@ -68,16 +71,30 @@ def obs_frontend_callback(event):
             toaster.show_toast(newToast)
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED:
         newToast = Toast()
-        newToast.text_fields = ['Started Replay Buffer']
+
+        global current_game
+        if current_game:
+            newToast.text_fields = ['Started Replay Buffer', "Playing " + current_game]
+        else:
+            newToast.text_fields = ['Started Replay Buffer']
+        
         newToast.duration = ToastDuration.Short
         toaster.clear_toasts()
         toaster.show_toast(newToast)
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED:
         newToast = Toast()
-        newToast.text_fields = ['Stopped Replay Buffer']
+        
+        global start_time
+        if start_time:
+            newToast.text_fields = ['Stopped Replay Buffer', "Session Duration: " + get_session_duration()]
+        else:
+            newToast.text_fields = ['Stopped Replay Buffer']
+        
         newToast.duration = ToastDuration.Short
         toaster.clear_toasts()
         toaster.show_toast(newToast)
+        
+        start_time = None
 
 def auto_replay_buffer():
     if obs.obs_data_get_bool(sett, "disabled"):
@@ -104,11 +121,17 @@ def auto_replay_buffer():
     if source is None:
         print("Could not find Game Capture source in current scene")
 
+    global current_game
+    global start_time
     if (not obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) > 0):
         obs.obs_frontend_replay_buffer_start()
+        current_game = get_foreground_window()
+        start_time = datetime.now()
         
     elif (obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) == 0):
         obs.obs_frontend_replay_buffer_stop()
+        current_game = None
+        start_time = None
 
     obs.obs_source_release(scene_as_source)
 
@@ -121,13 +144,15 @@ def move_recording():
     obs.calldata_destroy(cd)
     obs.obs_output_release(replay_buffer)
 
-    game = get_foreground_window()
-    new_path = os.path.dirname(path) + '/Replays/' + game + '/' + os.path.basename(path)
+    global current_game
+    if current_game is None:
+        current_game = get_foreground_window()
+    new_path = os.path.dirname(path) + '/Replays/' + current_game + '/' + os.path.basename(path)
 
     print("Saving replay to: " + new_path)
     os.renames(path, new_path)
 
-    return '/Replays/' + game + '/'
+    return '/Replays/' + current_game + '/'
 
 def get_foreground_window():
     try: 
@@ -159,7 +184,18 @@ def query_clipping_hotkey(is_pressed):
     toasterQuery = WindowsToaster('OBSAutoReplay')
     if is_pressed and obs.obs_frontend_replay_buffer_active():
         newToast = Toast()
-        newToast.text_fields = ['Replay Buffer is Currently Active']
+        
+        global current_game
+        global start_time
+        if current_game and start_time:
+            newToast.text_fields = ['Replay Buffer is Currently Active',  f"Playing {current_game} | Session Duration: {get_session_duration()}"]
+        elif current_game:
+            newToast.text_fields = ['Replay Buffer is Currently Active',  f"Playing {current_game}"]
+        elif start_time:
+            newToast.text_fields = ['Replay Buffer is Currently Active',  f"Session Duration: {get_session_duration()}"]
+        else:
+            newToast.text_fields = ['Replay Buffer is Currently Active']
+            
         newToast.duration = ToastDuration.Short
         toasterQuery.clear_toasts()
         toasterQuery.show_toast(newToast)
@@ -169,3 +205,7 @@ def query_clipping_hotkey(is_pressed):
         newToast.duration = ToastDuration.Short
         toasterQuery.clear_toasts()
         toasterQuery.show_toast(newToast)
+        
+def get_session_duration():
+    global start_time
+    return str(datetime.now() - start_time).split('.')[0]
