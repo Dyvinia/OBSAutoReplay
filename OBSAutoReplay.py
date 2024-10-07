@@ -3,6 +3,7 @@ import re
 import os
 import psutil
 from datetime import datetime
+import time
 import win32api
 import win32gui
 import win32process
@@ -26,9 +27,11 @@ def script_properties():
         obs.obs_property_list_add_string(scene_for_clips, scene, scene)
 
     obs.source_list_release(scenes)
+    
+    obs.obs_properties_add_float_slider(props, "ingame_toast_duration", "Notification Duration:", 0.5, 5, 0.05)
 
-    obs.obs_properties_add_bool(props, "disabled", "Disable Clipping")
-    obs.obs_properties_add_bool(props, "disable_notif", "Disable Notification On Save")
+    obs.obs_properties_add_bool(props, "enabled", "Enable Clipping")
+    obs.obs_properties_add_bool(props, "enable_notif", "Notification On Save")
 
     return props
 
@@ -55,27 +58,38 @@ def script_save(settings):
     the_data_array = obs.obs_hotkey_save(hotkey_id)
     obs.obs_data_set_array(settings, "query_clipping", the_data_array)
     obs.obs_data_array_release(the_data_array)
+    
+def script_defaults(settings):
+    obs.obs_data_set_default_double(settings, "ingame_toast_duration", 1.25)
+    obs.obs_data_set_default_bool(settings, "enabled", True)
+    obs.obs_data_set_default_bool(settings, "enable_notif", True)
 
 def script_unload():
     obs.timer_remove(auto_replay_buffer)
+    obs.obs_hotkey_unregister("query_clipping")
     toaster.clear_toasts()
 
 def obs_frontend_callback(event):
     if event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_SAVED:
         # sometimes the moving takes a while and theres no notif until after its done, leaving me worried it didnt save the clip. hopefully this fixes that
-        if not obs.obs_data_get_bool(sett, "disable_notif"):
+        if obs.obs_data_get_bool(sett, "enable_notif"):
             newToast = Toast()
             newToast.text_fields = ['Saving Replay...']
             newToast.duration = ToastDuration.Short
             toaster.clear_toasts()
             toaster.show_toast(newToast)
+            time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+            toaster.clear_toasts()
         path = move_recording()
-        if not obs.obs_data_get_bool(sett, "disable_notif"):
+        if obs.obs_data_get_bool(sett, "enable_notif"):
             newToast = Toast()
             newToast.text_fields = ['Saved Replay', "Saved in " + path]
             newToast.duration = ToastDuration.Short
             toaster.clear_toasts()
             toaster.show_toast(newToast)
+            time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+            toaster.clear_toasts()
+            
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED:
         newToast = Toast()
 
@@ -88,6 +102,7 @@ def obs_frontend_callback(event):
         newToast.duration = ToastDuration.Short
         toaster.clear_toasts()
         toaster.show_toast(newToast)
+        
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED:
         newToast = Toast()
         
@@ -104,7 +119,7 @@ def obs_frontend_callback(event):
         start_time = None
 
 def auto_replay_buffer():
-    if obs.obs_data_get_bool(sett, "disabled"):
+    if not obs.obs_data_get_bool(sett, "enabled"):
         if obs.obs_frontend_replay_buffer_active():
             obs.obs_frontend_replay_buffer_stop()
         return
@@ -212,6 +227,9 @@ def query_clipping_hotkey(is_pressed):
         newToast.duration = ToastDuration.Short
         toasterQuery.clear_toasts()
         toasterQuery.show_toast(newToast)
+        
+        time.sleep(obs.obs_data_get_double(sett, "ingame_toast_duration"))
+        toasterQuery.clear_toasts()
         
 def get_session_duration():
     global start_time
