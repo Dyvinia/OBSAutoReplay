@@ -93,6 +93,10 @@ def script_save(settings):
     obs.obs_data_set_array(settings, "query_clipping", the_data_array)
     obs.obs_data_array_release(the_data_array)
     
+    the_data_array = obs.obs_hotkey_save(update_game_hotkey_id)
+    obs.obs_data_set_array(settings, "update_game", the_data_array)
+    obs.obs_data_array_release(the_data_array)
+    
 def script_defaults(settings):
     obs.obs_data_set_default_double(settings, "refresh_interval", 10)
     obs.obs_data_set_default_double(settings, "toast_duration", 1.5)
