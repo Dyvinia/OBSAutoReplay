@@ -14,20 +14,35 @@ def script_description():
     return """
 Quality of Life features for Replay Buffer, making it similar to applications like Nvidia Shadowplay.
 
-OBSAutoReplay v1.1 by Dyvinia
+OBSAutoReplay v1.1.1 by Dyvinia
 """.strip()
 
 def script_properties():
     props = obs.obs_properties_create()
-    scene_for_clips = obs.obs_properties_add_list(props, "scene", "Scene For Clipping",
+    
+    scene_for_clips = obs.obs_properties_add_list(props, "scene", "Required Scene",
                                     obs.OBS_COMBO_TYPE_LIST,
                                     obs.OBS_COMBO_FORMAT_STRING)
-    scenes = obs.obs_frontend_get_scene_names()
+    obs.obs_property_set_long_description(scene_for_clips, "Only auto start replay buffer when this scene is active.\n\"<None>\" means that the replay buffer will be auto started in any scene.")
     
+    scenes = obs.obs_frontend_get_scene_names()
+    obs.obs_property_list_add_string(scene_for_clips, "<None>", None)
     for scene in scenes:
         obs.obs_property_list_add_string(scene_for_clips, scene, scene)
-
+        
     obs.source_list_release(scenes)
+        
+    profile_for_clips = obs.obs_properties_add_list(props, "profile", "Switch to Profile",
+                                    obs.OBS_COMBO_TYPE_LIST,
+                                    obs.OBS_COMBO_FORMAT_STRING)
+    obs.obs_property_set_long_description(profile_for_clips, "Automatically changes the profile when replay buffer is auto started, then changes it back to what it was after replay buffer stops.\n\"<No Change>\" means that the profile won't be changed/reverted.")
+    
+    profiles = obs.obs_frontend_get_profiles()
+    obs.obs_property_list_add_string(profile_for_clips, "<No Change>", None)
+    for profile in profiles:
+        obs.obs_property_list_add_string(profile_for_clips, profile, profile)
+
+    obs.source_list_release(profiles)
     
     refresh_interval = obs.obs_properties_add_float(props, "refresh_interval", "Refresh Interval:", 1, 20, 1)
     obs.obs_property_set_long_description(refresh_interval, "How often the OBSAutoReplay checks for if a game has started\n**Changing this requires reloading scripts or restarting OBS**")
@@ -35,8 +50,7 @@ def script_properties():
     toast_duration = obs.obs_properties_add_float_slider(props, "toast_duration", "Notification Duration:", 0.5, 5, 0.05)
     obs.obs_property_set_long_description(toast_duration, "How long the notifications stay on screen")
     
-    enabled = obs.obs_properties_add_bool(props, "enabled", "Enable Clipping ")
-    #obs.obs_property_set_long_description(enabled, "Enable/Disable Clipping")
+    obs.obs_properties_add_bool(props, "enabled", "Enable Clipping ")
     
     enable_notif = obs.obs_properties_add_bool(props, "enable_notif", "Notification On Save ")
     obs.obs_property_set_long_description(enable_notif, "Shows a windows notification whenever a clip is saved")
@@ -44,10 +58,14 @@ def script_properties():
     return props
 
 toaster = WindowsToaster('OBSAutoReplay')
+
 sett = None
 hotkey_id = obs.OBS_INVALID_HOTKEY_ID
+
 current_game = None
 start_time = None
+
+previous_profile = None
 
 def script_load(settings):
     obs.obs_frontend_add_event_callback(obs_frontend_callback)
@@ -141,7 +159,7 @@ def auto_replay_buffer():
     try:
         scene_as_source = obs.obs_frontend_get_current_scene()
 
-        if obs.obs_source_get_name(scene_as_source) != obs.obs_data_get_string(sett, "scene"):
+        if obs.obs_data_get_string(sett, "scene") and obs.obs_source_get_name(scene_as_source) != obs.obs_data_get_string(sett, "scene"):
             obs.obs_source_release(scene_as_source)
             return
 
@@ -160,13 +178,24 @@ def auto_replay_buffer():
 
         global current_game
         global start_time
+        global previous_profile
         if (not obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) > 0):
-            obs.obs_frontend_replay_buffer_start()
+            profile = obs.obs_data_get_string(sett, "profile")
+            if profile:
+                previous_profile = obs.obs_frontend_get_current_profile()
+                obs.obs_frontend_set_current_profile(profile)
+            
             current_game = get_foreground_window()
             start_time = datetime.now()
+            obs.obs_frontend_replay_buffer_start()
 
         elif (obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) == 0):
             obs.obs_frontend_replay_buffer_stop()
+            
+            if previous_profile:
+                obs.obs_frontend_set_current_profile(previous_profile)
+                previous_profile = None
+            
             current_game = None
             start_time = None
 
