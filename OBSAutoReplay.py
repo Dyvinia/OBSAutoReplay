@@ -3,8 +3,8 @@ from datetime import datetime
 import re
 import os
 import psutil
-import traceback
 import time
+import traceback
 import win32api
 import win32gui
 import win32process
