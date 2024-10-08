@@ -35,7 +35,7 @@ def script_properties():
     profile_switch = obs.obs_properties_add_list(props, "profile", "Switch to Profile",
                                     obs.OBS_COMBO_TYPE_LIST,
                                     obs.OBS_COMBO_FORMAT_STRING)
-    obs.obs_property_set_long_description(profile_switch, "Automatically changes the profile when replay buffer is auto started, then changes it back to what it was after replay buffer stops.\n\"<No Change>\" means that the profile won't be changed/reverted.")
+    obs.obs_property_set_long_description(profile_switch, "Automatically changes the profile when replay buffer is auto started, then changes it back to what it was after replay buffer stops.\n\"<No Change>\" means that the profile won't be changed/reverted at all.")
     
     profiles = obs.obs_frontend_get_profiles()
     obs.obs_property_list_add_string(profile_switch, "<No Change>", None)
