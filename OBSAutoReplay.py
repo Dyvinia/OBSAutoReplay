@@ -29,7 +29,6 @@ def script_properties():
     obs.obs_property_list_add_string(required_scene, "<None>", None)
     for scene in scenes:
         obs.obs_property_list_add_string(required_scene, scene, scene)
-        
     obs.source_list_release(scenes)
         
     profile_switch = obs.obs_properties_add_list(props, "profile", "Switch to Profile",
@@ -41,8 +40,6 @@ def script_properties():
     obs.obs_property_list_add_string(profile_switch, "<No Change>", None)
     for profile in profiles:
         obs.obs_property_list_add_string(profile_switch, profile, profile)
-
-    obs.source_list_release(profiles)
     
     refresh_interval = obs.obs_properties_add_float(props, "refresh_interval", "Refresh Interval:", 1, 20, 1)
     obs.obs_property_set_long_description(refresh_interval, "How often the OBSAutoReplay checks for if a game has started\n**Changing this requires reloading scripts or restarting OBS**")
