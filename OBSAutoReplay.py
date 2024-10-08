@@ -20,27 +20,27 @@ OBSAutoReplay v1.1.1 by Dyvinia
 def script_properties():
     props = obs.obs_properties_create()
     
-    scene_for_clips = obs.obs_properties_add_list(props, "scene", "Required Scene",
+    required_scene = obs.obs_properties_add_list(props, "scene", "Required Scene",
                                     obs.OBS_COMBO_TYPE_LIST,
                                     obs.OBS_COMBO_FORMAT_STRING)
-    obs.obs_property_set_long_description(scene_for_clips, "Only auto start replay buffer when this scene is active.\n\"<None>\" means that the replay buffer will be auto started in any scene.")
+    obs.obs_property_set_long_description(required_scene, "Only auto start replay buffer when this scene is active.\n\"<None>\" means that the replay buffer will be auto started in any scene.")
     
     scenes = obs.obs_frontend_get_scene_names()
-    obs.obs_property_list_add_string(scene_for_clips, "<None>", None)
+    obs.obs_property_list_add_string(required_scene, "<None>", None)
     for scene in scenes:
-        obs.obs_property_list_add_string(scene_for_clips, scene, scene)
+        obs.obs_property_list_add_string(required_scene, scene, scene)
         
     obs.source_list_release(scenes)
         
-    profile_for_clips = obs.obs_properties_add_list(props, "profile", "Switch to Profile",
+    profile_switch = obs.obs_properties_add_list(props, "profile", "Switch to Profile",
                                     obs.OBS_COMBO_TYPE_LIST,
                                     obs.OBS_COMBO_FORMAT_STRING)
-    obs.obs_property_set_long_description(profile_for_clips, "Automatically changes the profile when replay buffer is auto started, then changes it back to what it was after replay buffer stops.\n\"<No Change>\" means that the profile won't be changed/reverted.")
+    obs.obs_property_set_long_description(profile_switch, "Automatically changes the profile when replay buffer is auto started, then changes it back to what it was after replay buffer stops.\n\"<No Change>\" means that the profile won't be changed/reverted.")
     
     profiles = obs.obs_frontend_get_profiles()
-    obs.obs_property_list_add_string(profile_for_clips, "<No Change>", None)
+    obs.obs_property_list_add_string(profile_switch, "<No Change>", None)
     for profile in profiles:
-        obs.obs_property_list_add_string(profile_for_clips, profile, profile)
+        obs.obs_property_list_add_string(profile_switch, profile, profile)
 
     obs.source_list_release(profiles)
     
@@ -60,7 +60,8 @@ def script_properties():
 toaster = WindowsToaster('OBSAutoReplay')
 
 sett = None
-hotkey_id = obs.OBS_INVALID_HOTKEY_ID
+query_hotkey_id = obs.OBS_INVALID_HOTKEY_ID
+update_game_hotkey_id = obs.OBS_INVALID_HOTKEY_ID
 
 current_game = None
 start_time = None
@@ -75,14 +76,20 @@ def script_load(settings):
     
     obs.timer_add(auto_replay_buffer, int(obs.obs_data_get_double(sett, "refresh_interval") * 1000))
 
-    global hotkey_id
-    hotkey_id = obs.obs_hotkey_register_frontend("query_clipping", "Check If Replay Buffer Is Enabled", query_clipping_hotkey)
+    global query_hotkey_id
+    query_hotkey_id = obs.obs_hotkey_register_frontend("query_clipping", "OBSAutoReplay: Check If Replay Buffer Active", query_clipping_hotkey)
     the_data_array = obs.obs_data_get_array(settings, "query_clipping")
-    obs.obs_hotkey_load(hotkey_id, the_data_array)
+    obs.obs_hotkey_load(query_hotkey_id, the_data_array)
+    obs.obs_data_array_release(the_data_array)
+    
+    global update_game_hotkey_id
+    update_game_hotkey_id = obs.obs_hotkey_register_frontend("update_game", "OBSAutoReplay: Update Currently Selected Game", update_game_hotkey)
+    the_data_array = obs.obs_data_get_array(settings, "update_game")
+    obs.obs_hotkey_load(update_game_hotkey_id, the_data_array)
     obs.obs_data_array_release(the_data_array)
 
 def script_save(settings):
-    the_data_array = obs.obs_hotkey_save(hotkey_id)
+    the_data_array = obs.obs_hotkey_save(query_hotkey_id)
     obs.obs_data_set_array(settings, "query_clipping", the_data_array)
     obs.obs_data_array_release(the_data_array)
     
@@ -95,9 +102,13 @@ def script_defaults(settings):
 def script_unload():
     obs.timer_remove(auto_replay_buffer)
     obs.obs_hotkey_unregister("query_clipping")
+    obs.obs_hotkey_unregister("update_game")
     toaster.clear_toasts()
 
 def obs_frontend_callback(event):
+    global current_game
+    global start_time
+    
     if event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_SAVED:
         # sometimes the moving takes a while and theres no notif until after its done, leaving me worried it didnt save the clip. hopefully this fixes that
         if obs.obs_data_get_bool(sett, "enable_notif"):
@@ -120,8 +131,9 @@ def obs_frontend_callback(event):
             
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED:
         newToast = Toast()
-
-        global current_game
+        
+        current_game = get_foreground_window()
+        start_time = datetime.now()
         if current_game:
             newToast.text_fields = ['Started Replay Buffer', "Playing " + current_game]
         else:
@@ -137,9 +149,12 @@ def obs_frontend_callback(event):
     elif event == obs.OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED:
         newToast = Toast()
         
-        global start_time
-        if start_time:
-            newToast.text_fields = ['Stopped Replay Buffer', "Session Duration: " + get_session_duration()]
+        if current_game and start_time:
+            newToast.text_fields = ['Stopped Replay Buffer',  f"{current_game} | Session Duration: {get_session_duration()}"]
+        elif current_game:
+            newToast.text_fields = ['Stopped Replay Buffer',  f"{current_game}"]
+        elif start_time:
+            newToast.text_fields = ['Stopped Replay Buffer',  f"Session Duration: {get_session_duration()}"]
         else:
             newToast.text_fields = ['Stopped Replay Buffer']
         
@@ -148,7 +163,7 @@ def obs_frontend_callback(event):
         toaster.show_toast(newToast)
         
         start_time = None
-        # no toast duration here so that the notif with the playtime isnt lost
+        current_game = None
 
 def auto_replay_buffer():
     if not obs.obs_data_get_bool(sett, "enabled"):
@@ -185,8 +200,6 @@ def auto_replay_buffer():
                 previous_profile = obs.obs_frontend_get_current_profile()
                 obs.obs_frontend_set_current_profile(profile)
             
-            current_game = get_foreground_window()
-            start_time = datetime.now()
             obs.obs_frontend_replay_buffer_start()
 
         elif (obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) == 0):
@@ -195,9 +208,6 @@ def auto_replay_buffer():
             if previous_profile:
                 obs.obs_frontend_set_current_profile(previous_profile)
                 previous_profile = None
-            
-            current_game = None
-            start_time = None
 
         obs.obs_source_release(scene_as_source)
         
@@ -229,7 +239,7 @@ def get_foreground_window():
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
 
         exe = psutil.Process(pid).exe()
-        print(exe)
+        #print(exe)
 
         try:
             language, codepage = win32api.GetFileVersionInfo(exe, '\\VarFileInfo\\Translation')[0]
@@ -281,6 +291,28 @@ def query_clipping_hotkey(is_pressed):
         
         time.sleep(obs.obs_data_get_double(sett, "toast_duration"))
         toasterQuery.clear_toasts()
+        
+def update_game_hotkey(is_pressed):
+    toasterUpdate = WindowsToaster('OBSAutoReplay')
+    if is_pressed and obs.obs_frontend_replay_buffer_active():
+        newToast = Toast()
+        
+        global current_game
+        global start_time
+        
+        current_game = get_foreground_window()
+        
+        if start_time:
+            newToast.text_fields = ['Replay Buffer is Currently Active',  f"Playing {current_game} | Session Duration: {get_session_duration()}"]
+        else:
+            newToast.text_fields = ['Replay Buffer is Currently Active',  f"Playing {current_game}"]
+        
+        newToast.duration = ToastDuration.Short
+        toasterUpdate.clear_toasts()
+        toasterUpdate.show_toast(newToast)
+        
+        time.sleep(obs.obs_data_get_double(sett, "toast_duration"))
+        toasterUpdate.clear_toasts()
         
 def get_session_duration():
     global start_time
