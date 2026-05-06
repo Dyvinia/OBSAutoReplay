@@ -254,7 +254,6 @@ def auto_replay_buffer():
     scene_as_source = obs.obs_frontend_get_current_scene()
     try:
         if Settings.scene() and obs.obs_source_get_name(scene_as_source) != Settings.scene():
-            obs.obs_source_release(scene_as_source)
             return
 
         scene_items = obs.obs_scene_enum_items(obs.obs_scene_from_source(scene_as_source))
