@@ -14,7 +14,7 @@ def script_description():
     return """
 Quality of Life features for Replay Buffer, making it similar to applications like Nvidia Shadowplay.
 
-OBSAutoReplay v1.2.0 by Dyvinia
+OBSAutoReplay v1.2.1 by Dyvinia
 """.strip()
 
 def script_properties():
@@ -258,19 +258,26 @@ def auto_replay_buffer():
 
         scene_items = obs.obs_scene_enum_items(obs.obs_scene_from_source(scene_as_source))
 
-        source = None
+        sources = []
         for item in scene_items:
             source_item = obs.obs_sceneitem_get_source(item)
             source_id = obs.obs_source_get_id(source_item)
             if source_id == "game_capture":
-                source = source_item
+                sources.append(source_item)
         obs.sceneitem_list_release(scene_items)
         
-        if source is None:
-            print("Could not find Game Capture source in current scene")
+        if not sources:
+            print("Could not find any Game Capture source in current scene")
         
         global previous_profile
-        if (not obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) > 0):
+        
+        source_active = False
+        for source in sources:
+            if obs.obs_source_get_width(source) > 0:
+                source_active = True
+                break
+        
+        if (not obs.obs_frontend_replay_buffer_active() and source_active):
             profile = obs.obs_data_get_string(sett, "profile")
             if profile:
                 previous_profile = obs.obs_frontend_get_current_profile()
@@ -278,7 +285,7 @@ def auto_replay_buffer():
             
             obs.obs_frontend_replay_buffer_start()
 
-        elif (obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) == 0):
+        elif (obs.obs_frontend_replay_buffer_active() and not source_active):
             obs.obs_frontend_replay_buffer_stop()
             
             if previous_profile:
