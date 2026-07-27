@@ -14,7 +14,7 @@ def script_description():
     return """
 Quality of Life features for Replay Buffer, making it similar to applications like Nvidia Shadowplay.
 
-OBSAutoReplay v1.2.1 by Dyvinia
+OBSAutoReplay v1.3.0 by Dyvinia
 """.strip()
 
 def script_properties():
@@ -51,6 +51,12 @@ def script_properties():
     
     enable_notif = obs.obs_properties_add_bool(props, "enable_notif", "Notification On Save ")
     obs.obs_property_set_long_description(enable_notif, "Shows a windows notification whenever a clip is saved")
+    
+    custom_names = obs.obs_properties_add_editable_list(props, "custom_names", "Custom Names", obs.OBS_EDITABLE_LIST_TYPE_STRINGS, None, None)
+    obs.obs_property_set_long_description(custom_names, "Match exe name to a custom name.\nFor example, most of the time javaw.exe is Minecraft, so setting 'javaw:Minecraft' will save replays to /Minecraft/")
+    
+    custom_names_help = obs.obs_properties_add_text(props, "custom_names_help", "executable:Custom Name\nExample: javaw:Minecraft", obs.OBS_TEXT_INFO)
+    obs.obs_property_text_set_info_word_wrap(custom_names_help, True)
 
     return props
 
@@ -97,6 +103,24 @@ class Settings:
     def scene(cls):
         return cls._string("scene")
     
+    @classmethod
+    def custom_names(cls) -> dict[str, str]:
+        custom_names = obs.obs_data_get_array(sett, "custom_names")
+        custom_names_dict = {}
+        for i in range(obs.obs_data_array_count(custom_names)):
+            item = obs.obs_data_array_item(custom_names, i)
+            item_string: str = obs.obs_data_get_string(item, "value")
+            if ":" not in item_string:
+                print(f"Invalid custom name entry: {item_string}. Expected format: executable:Custom Name")
+                continue
+            exe_name, custom_name = item_string.split(":", 1)
+            exe_name = exe_name.replace(".exe", "").replace('.', '').strip()
+            custom_name = alphanumeric(custom_name.strip())
+            custom_names_dict[exe_name] = custom_name
+            obs.obs_data_release(item)
+        obs.obs_data_array_release(custom_names)
+        return custom_names_dict
+
 class GameSession:
     def __init__(self, game: str):
         self.game: str = game
@@ -325,6 +349,11 @@ def get_foreground_window():
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
 
         exe = psutil.Process(pid).exe()
+        exe_name = psutil.Process(pid).name().replace(".exe", "").replace('.', '').strip()
+        
+        custom_names = Settings.custom_names()
+        if exe_name in custom_names:
+            return custom_names[exe_name]
 
         try:
             language, codepage = win32api.GetFileVersionInfo(exe, '\\VarFileInfo\\Translation')[0] # type: ignore
@@ -332,7 +361,7 @@ def get_foreground_window():
 
             return alphanumeric(win32api.GetFileVersionInfo(exe, stringFileInfo))
         except:
-            return psutil.Process(pid).name().replace(".exe", "").replace('.', '').strip()
+            return exe_name
     except:
         return "Other"
     
